@@ -1,4 +1,6 @@
 import requests
+import csv
+from datetime import datetime
 
 
 class OwnerDetails:
@@ -21,6 +23,7 @@ def fetch_ownerid_by_cid(cid: str):
 
 
 def fetch_details_by_owner_id(ownerId: str):
+
     url = f"https://api.eralis.rsta.gov.bt/svc/personal-information/api/personal-informations/{ownerId}"
     response = requests.get(url)
     if response.status_code == 200:
@@ -29,20 +32,88 @@ def fetch_details_by_owner_id(ownerId: str):
     return None
 
 
-if __name__ == "__main__":
-    cid = "10503000532"
+def get_owner_detail_by_cid(cid: str):
     owner_id = fetch_ownerid_by_cid(cid)
     if owner_id:
         owner_details = fetch_details_by_owner_id(owner_id)
-        if owner_details:
-            print(f"Owner Details for CID {cid}:")
-            print(f"ID: {owner_details.ownerId}")
-            print(f"Name: {owner_details.name}")
-            print(f"Date of Birth: {owner_details.dob}")
-            print(f"Gender: {owner_details.gender}")
-            print(f"Avatar URL: {owner_details.avatarUrl}")
-            print(f"Contact: {owner_details.contact}")
-        else:
-            print(f"Owner details not found for Owner ID {owner_id}")
-    else:
-        print(f"Owner ID not found for CID {cid}")
+        return owner_details
+    return None
+
+
+def calculate_age(dob: str):
+    if not dob or dob == "Not Found":
+        return None
+    try:
+        birth_date = datetime.strptime(dob, "%Y-%m-%d")
+        today = datetime.today()
+        age = (
+            today.year
+            - birth_date.year
+            - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        )
+        return age
+    except ValueError:
+        return None
+
+
+if __name__ == "__main__":
+    file_name = "data/test.csv"
+    output_file = "data/output.csv"
+
+    with open(output_file, mode="w", newline="") as writefile:
+        csv_writer = csv.writer(writefile)
+        csv_writer.writerow(
+            [
+                "cid",
+                "name",
+                "dob",
+                "age",
+                "gender",
+                "avatarUrl",
+                "contactRsta",
+                "contact_50%",
+                "contact_20%",
+                "noUnits",
+                "buildingIds",
+                "plotIds",
+            ]
+        )
+        with open(file_name, mode="r") as file:
+            csv_reader = csv.reader(file)
+            next(csv_reader)
+            for row in csv_reader:
+                owner_data = get_owner_detail_by_cid(row[2])
+                if owner_data:
+                    csv_writer.writerow(
+                        [
+                            row[2],
+                            owner_data.name,
+                            owner_data.dob,
+                            calculate_age(owner_data.dob),
+                            owner_data.gender,
+                            f"https://s3.eralis.rsta.gov.bt/eralis{owner_data.avatarUrl}",
+                            owner_data.contact,
+                            row[3],
+                            row[4],
+                            row[5],
+                            row[6],
+                            row[7],
+                        ]
+                    )
+                else:
+                    csv_writer.writerow(
+                        [
+                            row[2],
+                            "Not Found",
+                            "Not Found",
+                            "Not Found",
+                            "Not Found",
+                            "Not Found",
+                            "Not Found",
+                            row[3],
+                            row[4],
+                            row[5],
+                            row[6],
+                            row[7],
+                        ]
+                    )
